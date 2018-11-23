@@ -1,0 +1,13 @@
+{
+  "name":"NyanCoin",
+  "coindecimal":"4",
+  "seed_nodes": [
+    {"host":"localhost","port":3000},
+    {"host":"localhost","port":5000}
+  ],
+  "networkId":"2x3px310xps",
+  "port":3000,
+  "maxSupply":10000000,
+  "premine":1000
+
+}
