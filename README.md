@@ -14,3 +14,5 @@ Harrison 'krakn' Hesslink @Triton_Harrison
 @rabTAI
 
 Want to start contributing? Go ahead fork and pull request!
+
+Thanks
