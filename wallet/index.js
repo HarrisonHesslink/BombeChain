@@ -17,37 +17,11 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
-class Transaction {
-
-  constructor(id, hash, type, timestamp, ins, outs) {
-    this.id = id;
-    this.hash = hash;
-    this.timestamp = timestamp;
-    this.data = {
-        inputs: ins,
-        outputs: outs
-      },
-      this.type = type;
-  }
-
-  _getID() {
-    return this.id;
-  }
-  _getHash() {
-    return this.hash();
-  }
-  _getTimestamp() {
-    return this.timestamp;
-  }
-  _getType() {
-    return this.type;
-  }
-  _getData() {
-    return this.data;
-  }
+var readline = require('readline');
 
 
-
-}
-module.exports = Transaction;
+var rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  terminal: true
+});

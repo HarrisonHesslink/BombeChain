@@ -1,3 +1,4 @@
+
 # BombeChain
 **The Headless Streaming Service**
 
@@ -16,3 +17,7 @@ Harrison 'krakn' Hesslink @Triton_Harrison
 Want to start contributing? Go ahead fork and pull request!
 
 Thanks
+```
+Running: 
+npm run dev -- --db [name] --port [port]
+```
