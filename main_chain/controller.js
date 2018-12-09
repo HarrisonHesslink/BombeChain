@@ -38,13 +38,9 @@ var rl = readline.createInterface({
   output: process.stdout,
   terminal: true
 });
-if (program.db) {
-  database.createDatabase(program.db);
-} else {
-  database.createDatabase("database");
-}
+console.log(program.port)
 if (program.port) {
-  peer2peer.CreateMyPeer(program.port);
+  peer2peer.CreateMyPeer(program.port, program.db);
 } else {
-  peer2peer.CreateMyPeer(config.port);
+  peer2peer.CreateMyPeer(config.port, "database");
 }

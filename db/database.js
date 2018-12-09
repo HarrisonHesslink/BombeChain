@@ -29,16 +29,20 @@ async function createDatabase(name) {
   database = db
 }
 async function writeToDatabase(block) {
+  database.open();
   if (database) {
-    database.put(block.index, JSON.stringify(block), function(err) {
+    database.put(block.index.toString(), JSON.stringify(block), function(err) {
       if (err) return console.log('Ooops!', err) // some kind of I/O error
-      console.log(block)
+      addBlock(block)
     })
   }
+  database.close();
 }
 async function readDatabase(index) {
+  database.open();
+
   if (database) {
-    db.get(index, {
+    database.get(index, {
       asBuffer: false
     }, function(err, value) {
       if (err) return false; // likely the key was not found
@@ -51,6 +55,7 @@ async function exitDatabase() {
   database.close();
 }
 async function getAllBlocks() {
+  database.open();
   await database.createReadStream()
     .on('data', function(data) {
       let bufferOne = Buffer.from(data.value);

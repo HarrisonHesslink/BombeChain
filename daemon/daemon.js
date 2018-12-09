@@ -28,15 +28,25 @@ var rl = readline.createInterface({
   output: process.stdout,
   terminal: true
 });
-
+var proposed = true;
 rl.on('line', function(line, lineCount, byteCount) {
   if (line == "get_status") {
     p2p.getStatus();
   } else if (line == "getKnownPeers") {
     p2p.knownPeers();
+  } else if (line == "stake") {
+    rl.question("You are the proposer please enter address: ", function(answer) {
+      rl.question("You are the proposer please enter balance: ", function(answer2) {
+        setInterval(function() {
+          blockchain.stake(answer, answer2)
+        }, 30100);
+      })
+    });
   } else if (line == "exit") {
     blockchain.exitDatabase();
     process.exit()
+  } else if (line == "pickWinner") {
+    blockchain.pickWinner();
   } else if (line == "getLastBlock") {
     const lastBlock = new Promise((resolve, reject) => {
       resolve(blockchain.getTopBlock())
@@ -46,7 +56,10 @@ rl.on('line', function(line, lineCount, byteCount) {
     })
   } else if (line == "proposeBlock" || line == "proposeblock") {
     rl.question("You are the proposer please enter address: ", function(answer) {
-      blockchain.proposeBlock(answer)
+      rl.question("You are the proposer please enter balance: ", function(answer2) {
+
+        blockchain.proposeBlock(answer, answer2)
+      })
     });
   } else if (line == "createWallet") {
     var w = new wallet();

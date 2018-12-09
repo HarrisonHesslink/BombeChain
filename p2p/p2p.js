@@ -24,15 +24,16 @@ let logger = require('../logger/logger')
 let chainMechanics = require('../main_chain/chain_mechanics')
 const config = require('../config.json')
 var this_peer;
-var senator = require('./senator')
-var senators = require('./senators');
+
 
 //Creates Peer
-function CreateMyPeer(port) {
+function CreateMyPeer(port, db) {
+
   this_peer = p2p.peer({
     host: 'localhost',
     port: port
   });
+  chainMechanics.createDatabase(db);
   loadSeedPeers(port);
   logger.logMessage("INFO", "Listening to P2P Server: " + port);
   chainMechanics.loadDatabase()
@@ -55,38 +56,40 @@ function CreateMyPeer(port) {
 
   this_peer.handle.sendBlock = (payload, done) => {
     if (payload.msg) {
-      logger.logMessage("INFO", payload.msg)
-      //console.log(payload.block)
-      chainMechanics.addBlock(payload.block, false);
+      //  logger.logMessage("INFO", payload.msg)
+      //  console.log(payload.block)
+      chainMechanics.addContenderBlock(payload.block, false);
     }
   }
-  this_peer.handle.checkResume = (payload, done) => {
-    if (payload) {
-      //TODO CHECK Resume
-      logger.logMessage("INFO", payload.msg)
-      done(null, {
-        peer_id: this_peer.self.id
-      })
+  this_peer.handle.syncBlock = (payload, done) => {
+    if (payload.msg) {
+      //  logger.logMessage("INFO", payload.msg)
+      //  console.log(payload.blockCount)
+      chainMechanics.addBlock(payload.block);
     }
   }
+  this_peer.handle.altBlock = (payload, done) => {
+    if (payload.msg) {
+      chainMechanics.addAltChain(payload.block, payload.blockCount);
+    }
+  }
+
   //Check if node is awake? Check Block Height if less request blocks from peer
   this_peer.handle.checkBlockHeight = (payload, done) => {
     if (payload) {
-      console.log(payload.msg)
+      //console.log(payload.msg)
       const lastBlock = new Promise((resolve, reject) => {
         resolve(chainMechanics.getTopBlock())
       });
       lastBlock.then(value => {
-        console.log(payload.blockIndex)
-        console.log(value.index)
         if (value) {
           //console.log(value.index)
           if (value.index < payload.blockIndex) {
-            requestBlocks(payload.blockIndex, value.index, payload.peer.self.host, payload.peer.self.port);
+            requestBlocks(payload.blockIndex, value.index, payload.peer.self.host, payload.peer.self.port, Math.abs(payload.blockIndex - value.index));
             done(null)
           }
         } else {
-          requestBlocks(payload.blockIndex, 1, payload.peer.self.host, payload.peer.self.port);
+          requestBlocks(payload.blockIndex, -1, payload.peer.self.host, payload.peer.self.port, payload.blockIndex);
           done(null)
         }
       })
@@ -95,7 +98,7 @@ function CreateMyPeer(port) {
   //Currently not used
   this_peer.handle.getSentBlock = (payload, done) => {
     if (payload) {
-      console.log(payload.msg)
+      //console.log(payload.msg)
       const lastBlock = new Promise((resolve, reject) => {
         resolve(chainMechanics.getTopBlock())
       });
@@ -119,18 +122,18 @@ function CreateMyPeer(port) {
   //send blocks to node which requested x block
   this_peer.handle.helpNode = (payload, done) => {
     if (payload) {
+      //console.log(payload.msg)
       const lastBlock = new Promise((resolve, reject) => {
         resolve(chainMechanics.getBlock(payload.blockRequested + 1))
       });
       lastBlock.then(value => {
+        console.log(payload.blockCount)
         if (value) {
-          sendBlock_2(value, payload.peer.self.host, payload.peer.self.port);
+          sendBlock_2(value, payload.peer.self.host, payload.peer.self.port, payload.blockCount);
           logger.logMessage("INFO", "Sent Block:" + value.hash + " " + value.index)
           done(null)
         }
-
       })
-
     }
   }
 }
@@ -166,19 +169,17 @@ function askForTopBlock(host, port) {
   });
 
   lastBlock.then(value => {
-    var index = 0;
+    var index = -1;
     if (value) {
       index = value.index;
-      console.log(value.index)
     }
-
     this_peer.remote({
       host: host,
       port: port
     }).run('handle/checkBlockHeight', {
       msg: "Requesting Block Height!",
       blockIndex: index,
-      peer: this_peer
+      peer: this_peer,
     }, (err, result) => {
       if (result) {
         const lastBlock = new Promise((resolve, reject) => {
@@ -223,26 +224,44 @@ function sendBlock(blk) {
 }
 
 //Send Block to node who requested
-function sendBlock_2(blk, host, port) {
+function sendBlock_2(blk, host, port, blockCount) {
   this_peer.remote({
     host: host,
     port: port
-  }).run('handle/sendBlock', {
+  }).run('handle/altBlock', {
     msg: "Incoming Proposed Block",
-    block: blk
+    block: blk,
+    blockCount: blockCount
   }, (err, result) => {
     //  console.log(result)
   });
 }
+
+function sendBlock_3(blk) {
+  var knownPeers = this_peer.wellKnownPeers.get();
+
+  for (var i = 0; i < knownPeers.length; i++) {
+    this_peer.remote({
+      host: knownPeers[i].host,
+      port: knownPeers[i].port
+    }).run('handle/syncBlock', {
+      msg: "Incoming Proposed Block",
+      block: blk
+    }, (err, result) => {
+      //  console.log(result)
+    });
+  }
+}
 //Request Blocks from a node
-function requestBlocks(index, ourIndex, host, port) {
-  for (var i = 0; i < index; i++) {
+function requestBlocks(index, ourIndex, host, port, count) {
+  for (var i = 0; i < index + 1; i++) {
     this_peer.remote({
       host: host,
       port: port
     }).run('handle/helpNode', {
       blockRequested: ourIndex + i,
-      peer: this_peer
+      peer: this_peer,
+      blockCount: count
     }, (err, result) => {
       //console.log(result);
     });
@@ -261,31 +280,6 @@ function knownPeers() {
     });
   }
 }
-//Not used
-async function checkResumes() {
-  var knownPeers = this_peer.wellKnownPeers.get();
-  var list = [];
-  for (var i = 0; i < knownPeers.length; i++) {
-    this_peer.remote({
-      host: knownPeers[i].host,
-      port: knownPeers[i].port
-    }).run('handle/checkResume', {
-      msg: "Consensus is looking at your Resume for being picked for Senator."
-    }, (err, result) => {
-      if (result) {
-        var new_senator = new senator(result.peer_id);
-        list.push(new_senator);
-        addSenator(new_senator);
-      }
-    });
-  }
-  //console.log(list);
-}
-async function addSenator(senator) {
-  senators.push(senator);
-}
-
-
 
 function createPeer(ip, port) {
   this_peer.wellKnownPeers.add({
@@ -307,15 +301,15 @@ function getRandomInt(max) {
   return Math.floor(Math.random() * Math.floor(max));
 }
 setInterval(function() {
+  console.log('Checking For Blocks');
   var knownPeers = this_peer.wellKnownPeers.get();
   askForTopBlock(knownPeers[getRandomInt(knownPeers.length)].host, knownPeers[getRandomInt(knownPeers.length)].port);
-  console.log('Checking For Blocks');
-
-}, 30000);
+}, 10000);
 module.exports = {
   CreateMyPeer,
   getStatus,
   knownPeers,
   sendBlock,
-  checkResumes
+  sendBlock_3
+
 }

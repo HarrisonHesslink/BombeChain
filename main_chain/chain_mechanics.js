@@ -21,25 +21,27 @@
 var blocks = require('./blocks')
 let logger = require('../logger/logger')
 var database = require('../db/database')
-
-
+var contenderBlocks = []
+var altChainBlocks = []
 //Adds Block to chain_mech
 // Must Be validated by newBlock.previousHash == lastBlock.hash
 //Currently being called twice for proposer
-function addBlock(block, created) {
+async function addBlock(block, created) {
   const lastBlock = new Promise((resolve, reject) => {
     resolve(getTopBlock())
   });
-  console.log(created)
   lastBlock.then(value => {
-    if (!created && block.index != 1) {
-
-      if (block.previousHash == value.hash) {
-        blocks.push(block);
-        database.writeToDatabase(block);
-        logger.logMessage("INFO", "Added Block: " + block.hash)
-      } else {
-        logger.logMessage("ERROR", "BLOCK IS NOT VALID! " + block.previousHash + " != " + value.previousHash)
+    logger.logMessage("INFO", "Verifying BLOCK INDEX: " + block.index)
+    if (!created && block.index != 0) {
+      if (value) {
+        if (block.previousHash == blocks[blocks.length - 1].hash) {
+          blocks.push(block);
+          database.writeToDatabase(block);
+          logger.logMessage("INFO", "Added Block: " + block.hash)
+        } else {
+          logger.logMessage("DEBUG", "BLOCK INDEX: " + block.index)
+          logger.logMessage("ERROR", "BLOCK IS NOT VALID! " + block.previousHash + " != " + value.hash)
+        }
       }
     } else {
       blocks.push(block);
@@ -47,6 +49,41 @@ function addBlock(block, created) {
       logger.logMessage("INFO", "Added Block: " + block.hash)
     }
   })
+}
+
+async function addContenderBlock(block, created) {
+  if (block.previousHash == '943837aa3e3b78ddc6d17eceffe7246e39fdd30e1edf734a73cad4e272be745b') {
+    await addBlock(block, false);
+  }
+  if (contenderBlocks.some(e => e.proposer === block.proposer)) {
+    return false;
+  } else {
+    const lastBlock = new Promise((resolve, reject) => {
+      resolve(getTopBlock())
+    });
+    lastBlock.then(value => {
+      if (!created && block.index > 0) {
+        if (block.previousHash == value.hash) {
+          contenderBlocks.push(block);
+          logger.logMessage("INFO", "Added Block to Contender Pool: " + block.hash)
+        }
+      } else {
+        logger.logMessage("ERROR", "BLOCK IS NOT VALID! " + block.previousHash + " != " + value.previousHash)
+      }
+    });
+  }
+}
+async function addAltChain(blk, blkc) {
+  altChainBlocks.push(blk);
+  if (altChainBlocks.length == blkc) {
+    var sorted = altChainBlocks.sort();
+    console.log(sorted)
+    for (var i = 0; i < sorted.length; i++) {
+      addBlock(sorted[i], false);
+    }
+    sorted = []
+    altChainBlocks = []
+  }
 }
 async function exitDatabase() {
   await database.exitDatabase();
@@ -61,7 +98,9 @@ async function getBlock(index) {
   var blks = await getDatabase();
   return blks[index]
 }
-
+async function createDatabase(name) {
+  await database.createDatabase(name);
+}
 //load persistant data into array
 async function loadDatabase() {
   await database.getAllBlocks();
@@ -71,11 +110,22 @@ async function getDatabase() {
   var blks = await database.returnBlocks();
   return blks
 }
+async function getContenderBlocks() {
+  return contenderBlocks;
+}
+async function resetContenderBlocks() {
+  contenderBlocks = []
+}
 module.exports = {
   addBlock,
   loadDatabase,
   getDatabase,
   getTopBlock,
   getBlock,
-  exitDatabase
+  exitDatabase,
+  addContenderBlock,
+  getContenderBlocks,
+  resetContenderBlocks,
+  addAltChain,
+  createDatabase
 }

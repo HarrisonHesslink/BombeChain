@@ -20,7 +20,7 @@
 
 class Block {
 
-  constructor(index, previousHash, timestamp, transactions, currentSupply, hash, proposer, senators) {
+  constructor(index, previousHash, timestamp, transactions, currentSupply, hash, proposer, proposeBalance, lastRound) {
     this.index = index;
     this.previousHash = previousHash;
     this.timestamp = timestamp;
@@ -28,7 +28,8 @@ class Block {
     this.currentSupply = currentSupply;
     this.hash = hash;
     this.proposer = proposer;
-    this.senators = senators;
+    this.proposerBal = proposeBalance;
+    this.lastRound = lastRound;
   }
 
   _getIndex() {
@@ -46,8 +47,9 @@ class Block {
   _getCurrentSupply() {
     return this.getCurrentSupply;
   }
-  _getSenators() {
-    return this.senators;
+
+  setOutcome(outcome) {
+    this.outcome = outcome;
   }
 
 }
